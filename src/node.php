@@ -36,6 +36,7 @@ $server = new Server(
     function (ServerRequestInterface $request) use ($blockChain, $nodeId, $bench) {
         switch ($request->getRequestTarget()) {
             case '/mine': // mine a new block
+                echo 'GET /mine'.PHP_EOL;
                 try {
                     $bench->start();
                     // Actually, it's the current latest block of the chain, and will be the previous block after the new block has been mined
@@ -63,6 +64,7 @@ $server = new Server(
                 if ($request->getMethod() !== 'POST') {
                     return new Response(400, ['Content-Type' => 'text/plain'], 'no');
                 }
+                echo 'POST /transactions'.PHP_EOL;
                 $in = json_decode($request->getBody()->getContents(), true);
                 assert(array_key_exists('sender', $in));
                 assert(array_key_exists('recipient', $in));
@@ -88,16 +90,17 @@ $server = new Server(
                 }
                 break;
             case '/chain':
+                echo 'GET /chain'.PHP_EOL;
                 $response = [
                     'chain' => $blockChain,
                     'length' => count($blockChain->getBlocks()),
                 ];
-
                 break;
             case '/nodes/register':
                 if ($request->getMethod() !== 'POST') {
                     return new Response(400, ['Content-Type' => 'text/plain'], 'no');
                 }
+                echo 'POST /nodes/register'.PHP_EOL;
                 $in = json_decode($request->getBody()->getContents(), true);
                 $nodes = $in['nodes'];
                 assert(array_key_exists('nodes', $in));
@@ -111,6 +114,7 @@ $server = new Server(
                 ];
                 break;
             case '/nodes/resolve':
+                echo 'GET /nodes/resolve'.PHP_EOL;
                 $replaced = $blockChain->resolveConflicts();
                 if ($replaced) {
                     $response = [
@@ -125,11 +129,13 @@ $server = new Server(
                 }
                 break;
             case '/chain/valid':
+                echo 'GET /chain/valid'.PHP_EOL;
                 $response = [
                     'message' => $blockChain->isValid() ? 'valid' : 'invalid',
                 ];
                 break;
             default:
+                echo 'GET /'.PHP_EOL;
                 $response = ['message' => 'We\'re up and running!'];
         }
 
