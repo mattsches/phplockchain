@@ -74,6 +74,7 @@ class Block implements \JsonSerializable
     /**
      * Specify data which should be serialized to JSON
      * @return mixed data which can be serialized by <b>json_encode</b>,
+     * @throws CannotPerformOperation
      */
     public function jsonSerialize(): array
     {
@@ -82,6 +83,7 @@ class Block implements \JsonSerializable
             'proof' => $this->getProofOfWork(),
             'previous_hash' => $this->getPreviousHash(),
             'transactions' => $this->getTransactions(),
+            'hash' => $this->calculateHash(),
         ];
     }
 

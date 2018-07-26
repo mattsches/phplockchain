@@ -17,6 +17,7 @@ class BlockTest extends Unit
 
     /**
      * Test setup
+     * @throws Exception
      */
     protected function _before()
     {
@@ -28,8 +29,10 @@ class BlockTest extends Unit
 
     /**
      * @test
+     * @throws ReflectionException
+     * @throws \ParagonIE\Halite\Alerts\CannotPerformOperation
      */
-    public function itShouldCalculateAnHash()
+    public function itShouldCalculateAnHash(): void
     {
         $reflection = new \ReflectionClass($this->block);
         $property = $reflection->getProperty('timestamp');
@@ -42,7 +45,7 @@ class BlockTest extends Unit
     /**
      * @test
      */
-    public function itShouldReturnAJsonSerializedRepresentation()
+    public function itShouldReturnAJsonSerializedRepresentation(): void
     {
         $result = $this->block->jsonSerialize();
         $this->assertSame(1, $result['index']);
