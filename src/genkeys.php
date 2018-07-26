@@ -1,6 +1,7 @@
 <?php
 
 use Aura\Cli\CliFactory;
+use Mattsches\Util;
 use ParagonIE\Halite\Alerts\InvalidKey;
 use ParagonIE\Halite\KeyFactory;
 
@@ -15,10 +16,14 @@ if (!$name) {
 }
 
 try {
-    $keyPair = KeyFactory::generateSignatureKeyPair();
+    $keyPair = Util::createSignatureKeypair();
 } catch (InvalidKey $e) {
 }
 $privateKey = $keyPair->getSecretKey();
 $publicKey = $keyPair->getPublicKey();
-echo $name.'\'s Private Key: ' . sodium_bin2hex($privateKey->getRawKeyMaterial()).PHP_EOL;
-echo $name.'\'s Public Key:  ' . sodium_bin2hex($publicKey->getRawKeyMaterial()).PHP_EOL;
+try {
+    echo $name.'\'s Private Key: '.Util::getKeyAsString($privateKey).PHP_EOL;
+    echo $name.'\'s Public Key:  '.Util::getKeyAsString($publicKey).PHP_EOL;
+} catch (SodiumException $exception) {
+    echo $exception->getMessage();
+}

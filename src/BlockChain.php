@@ -37,8 +37,6 @@ class BlockChain implements \JsonSerializable
     public function __construct(int $difficulty)
     {
         $this->difficulty = $difficulty;
-//        $this->addTransaction(new Transaction('0', '1', 1, '')); // Coinbase
-        $this->addBlock(100, '1');
     }
 
     /**
@@ -72,15 +70,20 @@ class BlockChain implements \JsonSerializable
     {
         $this->currentTransactions[] = $transaction;
 
-        return $this->getLatestBlock()->getIndex() + 1;
+        $latestBlock = $this->getLatestBlock();
+        if ($latestBlock instanceof Block) {
+            return $latestBlock->getIndex() + 1;
+        }
+
+        return 1;
     }
 
     /**
-     * @return Block
+     * @return Block|null
      */
-    public function getLatestBlock(): Block
+    public function getLatestBlock(): ?Block
     {
-        return end($this->blocks);
+        return end($this->blocks) ?: null;
     }
 
     /**
@@ -119,7 +122,7 @@ class BlockChain implements \JsonSerializable
         $neighbours = $this->getNodes();
         $maxLength = $this->getLength();
         $newChain = null;
-        $client = new \GuzzleHttp\Client();
+        $client = new \GuzzleHttp\Client(); //TODO move to client?
         foreach ($neighbours as $node) {
             echo 'Querying node '.sprintf('http://%s/chain', $node).PHP_EOL;
             try {
@@ -177,6 +180,7 @@ class BlockChain implements \JsonSerializable
     {
         return [
             'blocks' => $this->blocks,
+            'difficulty' => $this->difficulty,
             'currentTransactions' => $this->currentTransactions,
             'nodes' => $this->nodes,
         ];
@@ -193,7 +197,7 @@ class BlockChain implements \JsonSerializable
         while ($currentIndex < \count($this->blocks)) {
             $block = $this->blocks[$currentIndex];
             if ($block->getPreviousHash() !== $lastBlock->calculateHash()) {
-                $foo = $lastBlock->calculateHash();
+//                $foo = $lastBlock->calculateHash(); //TODO
                 echo 'INVALID'.PHP_EOL;
 
                 return false;
@@ -208,5 +212,13 @@ class BlockChain implements \JsonSerializable
         }
 
         return true;
+    }
+
+    /**
+     * @return int
+     */
+    public function getDifficulty(): int
+    {
+        return $this->difficulty;
     }
 }

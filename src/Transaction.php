@@ -2,21 +2,24 @@
 
 namespace Mattsches;
 
+use ParagonIE\Halite\Asymmetric\PublicKey;
+
 /**
  * Class Transaction
  * @package Mattsches
  *
  * @todo Implement validation of Transaction on initialization
+ * @todo Add custom message to Transaction
  */
 class Transaction implements \JsonSerializable
 {
     /**
-     * @var string
+     * @var PublicKey
      */
     private $sender;
 
     /**
-     * @var string
+     * @var PublicKey
      */
     private $recipient;
 
@@ -32,36 +35,40 @@ class Transaction implements \JsonSerializable
 
     /**
      * Transaction constructor.
-     * @param string $sender
-     * @param string $recipient
+     * @param PublicKey|string $sender
+     * @param PublicKey|string $recipient
      * @param int $amount
      * @param string $signature
+     * @throws \ParagonIE\Halite\Alerts\InvalidKey
+     * @throws \SodiumException
      */
-    public function __construct(string $sender, string $recipient, int $amount, string $signature)
+    public function __construct($sender, $recipient, int $amount, string $signature)
     {
-        $this->sender = $sender;
-        $this->recipient = $recipient;
+        $this->sender = Util::getPublicKeyAsObject($sender);
+        $this->recipient = Util::getPublicKeyAsObject($recipient);
         $this->amount = $amount;
         $this->signature = $signature;
     }
 
     /**
      * @return string
+     * @throws \SodiumException
      */
     public function getHashableString(): string
     {
-        return $this->amount.$this->sender.$this->recipient;
+        return $this->amount.Util::getKeyAsString($this->sender).Util::getKeyAsString($this->recipient);
     }
 
     /**
      * Specify data which should be serialized to JSON
      * @return mixed data which can be serialized by <b>json_encode</b>,
+     * @throws \SodiumException
      */
     public function jsonSerialize(): array
     {
         return [
-            'sender' => $this->sender,
-            'recipient' => $this->recipient,
+            'sender' => Util::getKeyAsString($this->sender),
+            'recipient' => Util::getKeyAsString($this->recipient),
             'amount' => $this->amount,
             'signature' => $this->signature,
         ];

@@ -3,13 +3,11 @@
 ini_set('error_log', __DIR__.'/../error.log');
 
 use Aura\Cli\CliFactory;
-use Mattsches\BlockChain;
+use Mattsches\Client;
+use Mattsches\InitialClient;
 use Mattsches\Transaction;
-use ParagonIE\Halite\Asymmetric\Crypto;
-use ParagonIE\Halite\Asymmetric\SignatureSecretKey;
-use ParagonIE\Halite\HiddenString;
+use Mattsches\Util;
 use Psr\Http\Message\ServerRequestInterface;
-use Ramsey\Uuid\Uuid;
 use React\Http\Response;
 use React\Http\Server;
 use React\Socket\Server as SocketServer;
@@ -18,22 +16,29 @@ require __DIR__.'/../vendor/autoload.php';
 
 $cliFactory = new CliFactory();
 $context = $cliFactory->newContext($GLOBALS);
-$getopt = $context->getopt(['port,p:', 'difficulty,d:']);
+$getopt = $context->getopt(['port,p:', 'difficulty,d:', 'master:m']);
 $port = $getopt->get('-p');
 $difficulty = $getopt->get('-d', 4);
+$isMaster = $getopt->get('-m', false);
 if (!$port) {
     die('No port given');
 }
 
 $loop = React\EventLoop\Factory::create();
 
-$nodeId = Uuid::uuid4()->toString();
-$blockChain = new BlockChain($difficulty);
+try {
+    $client = $isMaster ? new InitialClient(Util::createSignatureKeypair(), $difficulty) : new Client(Util::createSignatureKeypair());
+    // todo: if not master, download blockchain
+} catch (Exception $e) {
+    die($exception->getMessage());
+}
 
 $bench = new Ubench;
 
 $server = new Server(
-    function (ServerRequestInterface $request) use ($blockChain, $nodeId, $bench) {
+    function (ServerRequestInterface $request) use ($client, $bench) {
+        $response = [];
+        $blockChain = $client->getBlockChain();
         switch ($request->getRequestTarget()) {
             case '/mine': // mine a new block
                 echo 'GET /mine'.PHP_EOL;
@@ -43,8 +48,13 @@ $server = new Server(
                     $previousBlock = $blockChain->getLatestBlock();
                     $previousHash = $previousBlock->calculateHash();
                     $proof = $blockChain->getProofOfWork($previousBlock->getProofOfWork(), $previousHash);
-                    //TODO miner reward, make this more obvious:
-                    $blockChain->addTransaction(new Transaction('0', $nodeId, 1, ''));
+                    //TODO miner reward (coinbase), make this more obvious:
+                    $blockChain->addTransaction(new Transaction(
+                        $client->getKeyPair()->getPublicKey(),
+                        $client->getKeyPair()->getPublicKey(),
+                        12,
+                        Util::getTransactionSignature($client->getKeyPair()->getPublicKey(), $client->getKeyPair()->getPublicKey(), 12, $client->getKeyPair()->getSecretKey()))
+                    );
                     $block = $blockChain->addBlock($proof, $previousHash);
                     //TODO broadcast block to other nodes and negotiate consensus
                     $bench->end();
@@ -71,11 +81,7 @@ $server = new Server(
                 assert(array_key_exists('amount', $in));
                 assert(array_key_exists('privkey', $in)); //for demo purposes only
                 try {
-                    $message = $in['sender'].$in['recipient'].$in['amount'];
-                    $signature = Crypto::sign(
-                        $message,
-                        new SignatureSecretKey(new HiddenString(sodium_hex2bin($in['privkey'])))
-                    );
+                    $signature = Util::signTransaction($in['sender'].$in['recipient'].$in['amount'], $in['privkey']); // todo
                     $index = $blockChain->addTransaction(
                         new Transaction($in['sender'], $in['recipient'], (int)$in['amount'], $signature)
                     );
@@ -88,13 +94,6 @@ $server = new Server(
                         'message' => $e->getMessage(),
                     ];
                 }
-                break;
-            case '/chain':
-                echo 'GET /chain'.PHP_EOL;
-                $response = [
-                    'chain' => $blockChain,
-                    'length' => count($blockChain->getBlocks()),
-                ];
                 break;
             case '/nodes/register':
                 if ($request->getMethod() !== 'POST') {
@@ -133,6 +132,23 @@ $server = new Server(
                 $response = [
                     'message' => $blockChain->isValid() ? 'valid' : 'invalid',
                 ];
+                break;
+            case '/chain': // TODO @deprecated ?
+                echo 'GET /chain'.PHP_EOL;
+                $response = [
+                    'chain' => $blockChain,
+                    'length' => count($blockChain->getBlocks()),
+                ];
+                break;
+            case '/getblockchaininfo': // based on https://bitcoin.org/en/developer-reference#getblockchaininfo
+                echo 'GET /getblockchaininfo'.PHP_EOL;
+                $response = [
+                    'blocks' => count($blockChain->getBlocks()),
+                    'difficulty' => $blockChain->getDifficulty(),
+                ];
+                break;
+            case '/dashboard':
+                return new Response(200, [], file_get_contents(__DIR__.'/static/dashboard.html'));
                 break;
             default:
                 echo 'GET /'.PHP_EOL;
