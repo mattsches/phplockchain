@@ -2,10 +2,13 @@
 
 namespace Mattsches;
 
+use ParagonIE\Halite\Alerts\CannotPerformOperation;
+use ParagonIE\Halite\Alerts\InvalidDigestLength;
 use ParagonIE\Halite\Alerts\InvalidKey;
+use ParagonIE\Halite\Alerts\InvalidMessage;
+use ParagonIE\Halite\Alerts\InvalidSignature;
 use ParagonIE\Halite\Alerts\InvalidType;
 use ParagonIE\Halite\Asymmetric\Crypto;
-use ParagonIE\Halite\Asymmetric\PublicKey;
 use ParagonIE\Halite\Asymmetric\SignaturePublicKey;
 use ParagonIE\Halite\Asymmetric\SignatureSecretKey;
 use ParagonIE\Halite\HiddenString;
@@ -19,26 +22,6 @@ use ParagonIE\Halite\SignatureKeyPair;
  */
 final class Util
 {
-    /**
-     * @param $sender
-     * @param $recipient
-     * @param int $amount
-     * @param SignatureSecretKey $privateKey
-     * @return string
-     * @throws InvalidType
-     * @throws \SodiumException
-     */
-    public static function getTransactionSignature(
-        $sender,
-        $recipient,
-        int $amount,
-        SignatureSecretKey $privateKey
-    ): string {
-        $message = self::getKeyAsString($sender).self::getKeyAsString($recipient).$amount;
-
-        return Crypto::sign($message, $privateKey);
-    }
-
     /**
      * @param string|Key $key
      * @return string
@@ -54,14 +37,60 @@ final class Util
     }
 
     /**
-     * @param $publicKey
-     * @return PublicKey
+     * @param string $message
+     * @param string $privateKey
+     * @param string $recipientPublicKey
+     * @return string
+     */
+    public static function signTransaction(string $message, string $privateKey, string $recipientPublicKey): string
+    {
+        try {
+            $signature = Crypto::signAndEncrypt(
+                new HiddenString($message),
+                self::getPrivateKeyAsObject($privateKey),
+                self::getPublicKeyAsObject($recipientPublicKey)
+            );
+        } catch (InvalidKey $e) {
+            throw new \InvalidArgumentException('Invalid private key: ' . $e->getMessage());
+        } catch (InvalidType $e) {
+            throw new \InvalidArgumentException('Invalid type');
+        } catch (CannotPerformOperation $e) {
+            throw new \InvalidArgumentException('Cannot perform operation');
+        } catch (InvalidDigestLength $e) {
+            throw new \InvalidArgumentException('Invalid digest length');
+        } catch (InvalidMessage $e) {
+            throw new \InvalidArgumentException('Invalid message');
+        } catch (\SodiumException $e) {
+            throw new \InvalidArgumentException($e->getMessage() . ' ' . $privateKey . ' ' . $recipientPublicKey);
+        }
+
+        return $signature;
+    }
+
+    /**
+     * @param $privateKey
+     * @return SignaturePublicKey
      * @throws InvalidKey
      * @throws \SodiumException
      */
-    public static function getPublicKeyAsObject($publicKey): PublicKey
+    public static function getPrivateKeyAsObject($privateKey): SignatureSecretKey
     {
-        if ($publicKey instanceof PublicKey) {
+        if ($privateKey instanceof SignatureSecretKey) {
+            return $privateKey;
+        }
+
+        return new SignatureSecretKey(new HiddenString(sodium_hex2bin($privateKey)));
+    }
+
+    /**
+     * @param $publicKey
+     * @return SignaturePublicKey
+     * @throws InvalidKey
+     * @throws \SodiumException
+     */
+    public static function getPublicKeyAsObject($publicKey): SignaturePublicKey
+    {
+        if ($publicKey instanceof SignaturePublicKey) {
             return $publicKey;
         }
 
@@ -70,23 +99,49 @@ final class Util
 
     /**
      * @param string $message
-     * @param string $privateKey
-     * @return string
+     * @param string $publicKey
+     * @param string $signature
+     * @return bool
      */
-    public static function signTransaction(string $message, string $privateKey): string
+    public static function verifyTransaction(string $message, string $publicKey, string $signature): bool
     {
         try {
-            $signature = Crypto::sign(
+            $verified = Crypto::verify(
                 $message,
-                new SignatureSecretKey(new HiddenString(sodium_hex2bin($privateKey)))
+                new SignaturePublicKey(new HiddenString(sodium_hex2bin($publicKey))),
+                $signature
             );
-        } catch (InvalidKey|\SodiumException $e) {
-            throw new \InvalidArgumentException('Invalid private key');
+        } catch (InvalidKey $e) {
+            $verified = false;
+        } catch (InvalidSignature $e) {
+            $verified = false;
         } catch (InvalidType $e) {
-            throw new \InvalidArgumentException('Invalid type');
+            $verified = false;
+        } catch (\SodiumException $e) {
+            $verified = false;
         }
 
-        return $signature;
+        return $verified;
+    }
+
+    /**
+     * @param string $message
+     * @param SignaturePublicKey $senderPublicKey
+     * @param SignatureSecretKey $recipientPrivateKey
+     * @return string
+     */
+    public static function verifyAndDecryptTransaction(
+        string $message,
+        SignaturePublicKey $senderPublicKey,
+        SignatureSecretKey $recipientPrivateKey
+    ): string {
+        try {
+            $decrypted = Crypto::verifyAndDecrypt($message, $senderPublicKey, $recipientPrivateKey);
+        } catch (CannotPerformOperation|InvalidDigestLength|InvalidKey|InvalidMessage|InvalidSignature|InvalidType $e) {
+            return $e->getMessage();
+        }
+
+        return $decrypted->getString();
     }
 
     /**

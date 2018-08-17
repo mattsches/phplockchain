@@ -38,21 +38,21 @@ class InitialClient extends Client
     }
 
     /**
-     * @throws \ParagonIE\Halite\Alerts\InvalidType
      * @throws \SodiumException
-     * @throws \ParagonIE\Halite\Alerts\InvalidKey
+     * @throws \Exception
      */
     private function addGenesisBlock(): void
     {
         $amount = 10;
-        $signature = Util::getTransactionSignature(
-            $this->keyPair->getPublicKey(),
-            $this->keyPair->getPublicKey(),
-            $amount,
-            $this->keyPair->getSecretKey()
+        $publicKeyAsString = Util::getKeyAsString($this->keyPair->getPublicKey());
+        $message = $publicKeyAsString.$publicKeyAsString.$amount;
+        $signature = Util::signTransaction(
+            $message,
+            Util::getKeyAsString($this->keyPair->getSecretKey()),
+            $publicKeyAsString
         );
         $this->blockChain->addTransaction(
-            new Transaction($this->keyPair->getPublicKey(), $this->keyPair->getPublicKey(), 10, $signature)
+            new Transaction($this->keyPair->getPublicKey(), $this->keyPair->getPublicKey(), $amount, $signature)
         );
         $this->blockChain->addBlock(100, '1');
     }

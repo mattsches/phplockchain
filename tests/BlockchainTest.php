@@ -34,16 +34,6 @@ class BlockchainTest extends Unit
 
     /**
      * @test
-     **/
-    public function itShouldRegisterANode(): void
-    {
-        $this->assertCount(0, $this->blockchain->getNodes());
-        $this->blockchain->registerNode('127.0.0.1:5555');
-        $this->assertCount(1, $this->blockchain->getNodes());
-    }
-
-    /**
-     * @test
      *
      * @throws Exception
      */
@@ -128,5 +118,15 @@ class BlockchainTest extends Unit
     public function itShouldGetDifficulty(): void
     {
         $this->assertSame(4, $this->blockchain->getDifficulty());
+    }
+
+    /**
+     * @test
+     */
+    public function itShouldGetBlocks(): void
+    {
+        $this->blockchain->addBlock(123, '1');
+        $result = $this->blockchain->getBlocks();
+        $this->assertCount(1, $result);
     }
 }

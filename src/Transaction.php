@@ -2,7 +2,9 @@
 
 namespace Mattsches;
 
-use ParagonIE\Halite\Asymmetric\PublicKey;
+use ParagonIE\Halite\Asymmetric\SignaturePublicKey;
+use ParagonIE\Halite\Asymmetric\SignatureSecretKey;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Class Transaction
@@ -14,17 +16,22 @@ use ParagonIE\Halite\Asymmetric\PublicKey;
 class Transaction implements \JsonSerializable
 {
     /**
-     * @var PublicKey
+     * @var Uuid
+     */
+    private $txid;
+
+    /**
+     * @var SignaturePublicKey
      */
     private $sender;
 
     /**
-     * @var PublicKey
+     * @var SignaturePublicKey
      */
     private $recipient;
 
     /**
-     * @var string
+     * @var int
      */
     private $amount;
 
@@ -35,17 +42,22 @@ class Transaction implements \JsonSerializable
 
     /**
      * Transaction constructor.
-     * @param PublicKey|string $sender
-     * @param PublicKey|string $recipient
+     *
+     * @param SignaturePublicKey $sender
+     * @param SignaturePublicKey $recipient
      * @param int $amount
      * @param string $signature
-     * @throws \ParagonIE\Halite\Alerts\InvalidKey
-     * @throws \SodiumException
+     * @throws \Exception
      */
-    public function __construct($sender, $recipient, int $amount, string $signature)
-    {
-        $this->sender = Util::getPublicKeyAsObject($sender);
-        $this->recipient = Util::getPublicKeyAsObject($recipient);
+    public function __construct(
+        SignaturePublicKey $sender,
+        SignaturePublicKey $recipient,
+        int $amount,
+        string $signature
+    ) {
+        $this->txid = Uuid::uuid4();
+        $this->sender = $sender;
+        $this->recipient = $recipient;
         $this->amount = $amount;
         $this->signature = $signature;
     }
@@ -60,6 +72,26 @@ class Transaction implements \JsonSerializable
     }
 
     /**
+     * @return string
+     */
+    public function getTxid(): string
+    {
+        return $this->txid;
+    }
+
+    /**
+     * @param SignatureSecretKey $recipientPrivateKey
+     * @return bool
+     * @throws \SodiumException
+     */
+    public function verifyAndDecrypt(SignatureSecretKey $recipientPrivateKey): bool
+    {
+        $decrypted = Util::verifyAndDecryptTransaction($this->signature, $this->sender, $recipientPrivateKey);
+
+        return $decrypted === Util::getKeyAsString($this->sender).Util::getKeyAsString($this->recipient).$this->amount;
+    }
+
+    /**
      * Specify data which should be serialized to JSON
      * @return mixed data which can be serialized by <b>json_encode</b>,
      * @throws \SodiumException
@@ -67,6 +99,7 @@ class Transaction implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return [
+            'txid' => $this->txid->toString(),
             'sender' => Util::getKeyAsString($this->sender),
             'recipient' => Util::getKeyAsString($this->recipient),
             'amount' => $this->amount,

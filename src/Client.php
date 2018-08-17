@@ -38,6 +38,21 @@ class Client
     }
 
     /**
+     * @param string $txid
+     * @return bool
+     * @throws \Exception
+     */
+    public function verifyAndDecryptTransaction(string $txid): bool
+    {
+        $transaction = $this->getBlockChain()->findTransaction($txid);
+        if (!$transaction instanceof Transaction) {
+            throw new \Exception('Transaction not found');
+        }
+
+        return $transaction->verifyAndDecrypt($this->getKeyPair()->getSecretKey());
+    }
+
+    /**
      * @return SignatureKeyPair
      */
     public function getKeyPair(): SignatureKeyPair

@@ -12,7 +12,7 @@ use ParagonIE\Halite\SignatureKeyPair;
 class InitialClientTest extends \Codeception\Test\Unit
 {
     /**
-     * @var
+     * @var InitialClient
      */
     private $client;
 

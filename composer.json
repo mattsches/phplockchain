@@ -22,7 +22,11 @@
     "react/event-loop": "^1.0",
     "react/http": "^0.8",
     "react/http-client": "^0.5",
-    "react/socket": "^1.0"
+    "react/socket": "^1.0",
+    "christoph-kluge/reactphp-http-cors-middleware": "^1.0",
+    "symfony/serializer": "^4.1",
+    "symfony/property-access": "^4.1",
+    "stephenhill/base58": "^1.1"
   },
   "require-dev": {
     "codeception/codeception": "^2.4",

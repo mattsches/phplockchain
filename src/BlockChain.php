@@ -2,8 +2,6 @@
 
 namespace Mattsches;
 
-use GuzzleHttp\Exception\GuzzleException;
-
 /**
  * Class BlockChain
  * @package Mattsches
@@ -54,15 +52,6 @@ class BlockChain implements \JsonSerializable
     }
 
     /**
-     * @param $address
-     */
-    public function registerNode($address): void
-    {
-        //TODO parse address
-        $this->nodes[] = $address;
-    }
-
-    /**
      * @param Transaction $transaction The transaction that will be added
      * @return int Index of the block to which the transaction will be added, ie the next block
      */
@@ -88,13 +77,13 @@ class BlockChain implements \JsonSerializable
 
     /**
      * @param string $previousProofOfWork
-     * @param string $previousHash
+     * @param string $previousHash The hash of the previous block
      * @return int
      */
     public function getProofOfWork(string $previousProofOfWork, string $previousHash): int
     {
         $proof = 0;
-        while ($this->validProof($previousProofOfWork, $proof, $previousHash) === false) {
+        while ($this->isValidProof($proof, $previousProofOfWork, $previousHash) === false) {
             $proof++;
         }
 
@@ -102,14 +91,14 @@ class BlockChain implements \JsonSerializable
     }
 
     /**
-     * @param $lastProof
-     * @param $proof
-     * @param $lastHash
+     * @param int $proof
+     * @param string $previousProofOfWork
+     * @param string $previousHash
      * @return bool
      */
-    private function validProof($lastProof, $proof, $lastHash): bool
+    private function isValidProof(int $proof, string $previousProofOfWork, string $previousHash): bool
     {
-        $guessHash = hash('sha256', $lastProof.$proof.$lastHash);
+        $guessHash = hash('sha256', $previousProofOfWork.$proof.$previousHash);
 
         return 0 === strpos($guessHash, str_repeat('0', $this->difficulty));
     }
@@ -117,53 +106,45 @@ class BlockChain implements \JsonSerializable
     /**
      * @return bool
      */
-    public function resolveConflicts(): bool
-    {
-        $neighbours = $this->getNodes();
-        $maxLength = $this->getLength();
-        $newChain = null;
-        $client = new \GuzzleHttp\Client(); //TODO move to client?
-        foreach ($neighbours as $node) {
-            echo 'Querying node '.sprintf('http://%s/chain', $node).PHP_EOL;
-            try {
-                $response = $client->request('GET', sprintf('http://%s/chain', $node));
-                $values = json_decode($response->getBody()->getContents());
-                $length = $values->length;
-                $chain = $values->chain->blocks;
-                if ($length > $maxLength) {
-                    $maxLength = $length;
-                    $newChain = $chain;
-                }
-            } catch (GuzzleException $e) {
-                echo $e->getMessage().PHP_EOL;
-            }
-        }
-        //TODO
-        if ($newChain !== null) {
-            $this->blocks = $newChain;
+//    public function resolveConflicts(): bool
+//    {
+//        $neighbours = $this->getNodes();
+//        $maxLength = $this->getLength();
+//        $newChain = null;
+//        $client = new \GuzzleHttp\Client(); //TODO move to client?
+//        foreach ($neighbours as $node) {
+//            echo 'Querying node '.sprintf('http://%s/chain', $node).PHP_EOL;
+//            try {
+//                $response = $client->request('GET', sprintf('http://%s/chain', $node));
+//                $values = json_decode($response->getBody()->getContents());
+//                $length = $values->length;
+//                $chain = $values->chain->blocks;
+//                if ($length > $maxLength) {
+//                    $maxLength = $length;
+//                    $newChain = $chain;
+//                }
+//            } catch (GuzzleException $e) {
+//                echo $e->getMessage().PHP_EOL;
+//            }
+//        }
+//        //TODO
+//        if ($newChain !== null) {
+//            $this->blocks = $newChain;
+//
+//            return true;
+//        }
+//
+//        return false;
+//    }
 
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * @return array
-     */
-    public function getNodes(): array
-    {
-        return $this->nodes;
-    }
-
-    /**
-     * @return int
-     */
-    private function getLength(): int
-    {
-        return \count($this->getBlocks());
-    }
-
+//    /**
+//     * @return int
+//     */
+//    private function getLength(): int
+//    {
+//        return \count($this->getBlocks());
+//    }
+//
     /**
      * @return Block[]
      */
@@ -202,7 +183,7 @@ class BlockChain implements \JsonSerializable
 
                 return false;
             }
-            if (!$this->validProof($lastBlock->getProofOfWork(), $block->getProofOfWork(), $block->getPreviousHash())) {
+            if (!$this->isValidProof($block->getProofOfWork(), $lastBlock->getProofOfWork(), $block->getPreviousHash())) {
                 echo 'INVALID 2'.PHP_EOL;
 
                 return false;
@@ -220,5 +201,21 @@ class BlockChain implements \JsonSerializable
     public function getDifficulty(): int
     {
         return $this->difficulty;
+    }
+
+    /**
+     * @param string $txid
+     * @return Transaction|null
+     */
+    public function findTransaction(string $txid): ?Transaction
+    {
+        foreach ($this->blocks as $block) {
+            foreach ($block->getTransactions() as $transaction) {
+                if ($transaction->getTxid() === $txid) {
+                    return $transaction;
+                }
+            }
+        }
+        return null;
     }
 }

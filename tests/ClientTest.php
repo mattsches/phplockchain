@@ -1,7 +1,9 @@
 <?php
 
-use Mattsches\BlockChain;
+use Codeception\Stub;
 use Mattsches\Client;
+use Mattsches\InitialClient;
+use Mattsches\Transaction;
 use Mattsches\Util;
 use ParagonIE\Halite\SignatureKeyPair;
 
@@ -11,7 +13,7 @@ use ParagonIE\Halite\SignatureKeyPair;
 class ClientTest extends \Codeception\Test\Unit
 {
     /**
-     * @var
+     * @var Client
      */
     private $client;
 
@@ -46,5 +48,36 @@ class ClientTest extends \Codeception\Test\Unit
     public function itShouldGetKeyPair(): void
     {
         $this->assertInstanceOf(SignatureKeyPair::class, $this->client->getKeyPair());
+    }
+
+    /**
+     * @test
+     */
+    public function itShouldVerifyAndDecryptTransaction()
+    {
+        $client = new InitialClient(Util::createSignatureKeypair(), 4);
+        $transaction = Stub::make(Transaction::class, [
+            'getTxid' => 'txid',
+            'verifyAndDecrypt' => true,
+        ]);
+        $client->getBlockChain()->addTransaction($transaction);
+        $client->getBlockChain()->addBlock(1, 'foo');
+        $this->assertTrue($client->verifyAndDecryptTransaction('txid'));
+    }
+
+    /**
+     * @test
+     */
+    public function itShouldTryToVerifyANonexistantTransaction()
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Transaction not found');
+        $client = new InitialClient(Util::createSignatureKeypair(), 4);
+        $transaction = Stub::make(Transaction::class, [
+            'getTxid' => 'foobar',
+        ]);
+        $client->getBlockChain()->addTransaction($transaction);
+        $client->getBlockChain()->addBlock(1, 'foo');
+        $client->verifyAndDecryptTransaction('txid');
     }
 }
