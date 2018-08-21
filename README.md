@@ -16,15 +16,15 @@ $ composer install
 
 ## Usage
 
-To start a node, open a terminal and run
+To start a (master) node, open a terminal and run
 
 ```bash
-$ php src/node.php -p 5001 -d 4
+$ php src/node.php -p 5001 -d 4 -m
 ```
 
-where `-p` is the port number and `-d` the difficulty (`4` is default, be careful not to set it too high).
+where `-p` is the port number, `-d` the difficulty (`4` is default, be careful not to set it too high), and `-m` means it's the master node. Ommitting `-m` means running as a regular node without a copy of the blockchain currently.
 
-Then, you can *talk* to the node through its API using Postman, CURL, or your favorite tool.
+You can then send requests to the node through its API using Postman, CURL, or your favorite tool.
 
 TODO: Add API docs.
 
@@ -41,6 +41,7 @@ There are central concepts of a blockchain that have not been implemented here, 
 * Validation of (the signature of) transactions
 * Broadcasting transactions to peer nodes
 * Broadcasting freshly mined block to peer nodes and negotiating consensus
+* Adding a browser GUI for interaction with the nodes
 
 ## Acknowledgments
 

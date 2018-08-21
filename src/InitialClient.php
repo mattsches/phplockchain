@@ -17,24 +17,22 @@ class InitialClient extends Client
      */
     public function __construct(SignatureKeyPair $keyPair, int $difficulty)
     {
-        parent::__construct($keyPair);
-        $this->initBlockChain($difficulty);
+        parent::__construct($keyPair, $this->initBlockChain($difficulty));
+        try {
+            $this->addGenesisBlock();
+        } catch (\Exception $exception) {
+            die($exception->getMessage());
+        }
+
     }
 
     /**
      * @param int $difficulty
      * @return $this
      */
-    private function initBlockChain(int $difficulty): self
+    private function initBlockChain(int $difficulty): BlockChain
     {
-        try {
-            $this->blockChain = new BlockChain($difficulty);
-            $this->addGenesisBlock();
-        } catch (\Exception $exception) {
-            die($exception->getMessage());
-        }
-
-        return $this;
+        return new BlockChain($difficulty);
     }
 
     /**
@@ -51,9 +49,10 @@ class InitialClient extends Client
             Util::getKeyAsString($this->keyPair->getSecretKey()),
             $publicKeyAsString
         );
-        $this->blockChain->addTransaction(
+        $this->addTransaction(
             new Transaction($this->keyPair->getPublicKey(), $this->keyPair->getPublicKey(), $amount, $signature)
         );
-        $this->blockChain->addBlock(100, '1');
+        $this->blockChain->addBlock($this->currentTransactions, 100, '1');
+        $this->currentTransactions = [];
     }
 }

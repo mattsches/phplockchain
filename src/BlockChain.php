@@ -14,16 +14,6 @@ class BlockChain implements \JsonSerializable
     private $blocks = [];
 
     /**
-     * @var Transaction[]
-     */
-    private $currentTransactions = [];
-
-    /**
-     * @var array
-     */
-    private $nodes = [];
-
-    /**
      * @var int
      */
     private $difficulty;
@@ -38,33 +28,17 @@ class BlockChain implements \JsonSerializable
     }
 
     /**
-     * @param $proof
-     * @param $previousHash
+     * @param array $transactions
+     * @param int $proof
+     * @param string $previousHash
      * @return Block
      */
-    public function addBlock($proof, $previousHash): Block
+    public function addBlock(array $transactions, int $proof, string $previousHash): Block
     {
-        $block = new Block(\count($this->blocks) + 1, $this->currentTransactions, $proof, $previousHash);
-        $this->currentTransactions = [];
+        $block = new Block(\count($this->blocks) + 1, $transactions, $proof, $previousHash);
         $this->blocks[] = $block;
 
         return $block;
-    }
-
-    /**
-     * @param Transaction $transaction The transaction that will be added
-     * @return int Index of the block to which the transaction will be added, ie the next block
-     */
-    public function addTransaction(Transaction $transaction): int
-    {
-        $this->currentTransactions[] = $transaction;
-
-        $latestBlock = $this->getLatestBlock();
-        if ($latestBlock instanceof Block) {
-            return $latestBlock->getIndex() + 1;
-        }
-
-        return 1;
     }
 
     /**
@@ -162,8 +136,6 @@ class BlockChain implements \JsonSerializable
         return [
             'blocks' => $this->blocks,
             'difficulty' => $this->difficulty,
-            'currentTransactions' => $this->currentTransactions,
-            'nodes' => $this->nodes,
         ];
     }
 
@@ -204,6 +176,7 @@ class BlockChain implements \JsonSerializable
     }
 
     /**
+     * @todo Use MerkleTree?
      * @param string $txid
      * @return Transaction|null
      */

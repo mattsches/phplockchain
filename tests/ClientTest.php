@@ -60,8 +60,8 @@ class ClientTest extends \Codeception\Test\Unit
             'getTxid' => 'txid',
             'verifyAndDecrypt' => true,
         ]);
-        $client->getBlockChain()->addTransaction($transaction);
-        $client->getBlockChain()->addBlock(1, 'foo');
+        $client->addTransaction($transaction);
+        $client->getBlockChain()->addBlock($client->getCurrentTransactions(), 1, 'foo');
         $this->assertTrue($client->verifyAndDecryptTransaction('txid'));
     }
 
@@ -76,8 +76,22 @@ class ClientTest extends \Codeception\Test\Unit
         $transaction = Stub::make(Transaction::class, [
             'getTxid' => 'foobar',
         ]);
-        $client->getBlockChain()->addTransaction($transaction);
-        $client->getBlockChain()->addBlock(1, 'foo');
+        $client->addTransaction($transaction);
+        $client->getBlockChain()->addBlock($client->getCurrentTransactions(), 1, 'foo');
         $client->verifyAndDecryptTransaction('txid');
+    }
+
+    /**
+     * @test
+     *
+     * @throws Exception
+     */
+    public function itShouldAddATransaction(): void
+    {
+        $client = new InitialClient(Util::createSignatureKeypair(), 4);
+        /** @var Transaction $transaction */
+        $transaction = Stub::make(Transaction::class);
+        $result = $client->addTransaction($transaction);
+        $this->assertSame(2, $result);
     }
 }

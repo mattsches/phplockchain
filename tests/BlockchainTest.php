@@ -34,24 +34,12 @@ class BlockchainTest extends Unit
 
     /**
      * @test
-     *
-     * @throws Exception
-     */
-    public function itShouldAddATransaction(): void
-    {
-        /** @var Transaction $transaction */
-        $transaction = Stub::make(Transaction::class);
-        $result = $this->blockchain->addTransaction($transaction);
-        $this->assertSame(1, $result);
-    }
-
-    /**
-     * @test
      **/
     public function itShouldGetTheLatestBlock(): void
     {
+        $currentTransactions = [Stub::make(Transaction::class)];
         $this->assertNull($this->blockchain->getLatestBlock());
-        $this->blockchain->addBlock(100, '');
+        $this->blockchain->addBlock($currentTransactions, 100, '');
         $result = $this->blockchain->getLatestBlock();
         $this->assertInstanceOf(Block::class, $result);
         $this->assertSame(1, $result->getIndex());
@@ -73,8 +61,7 @@ class BlockchainTest extends Unit
     {
         $result = $this->blockchain->jsonSerialize();
         $this->assertInternalType('array', $result['blocks']);
-        $this->assertInternalType('array', $result['currentTransactions']);
-        $this->assertInternalType('array', $result['nodes']);
+        $this->assertInternalType('int', $result['difficulty']);
     }
 
     /**
@@ -82,7 +69,8 @@ class BlockchainTest extends Unit
      **/
     public function itShouldAddABlock(): void
     {
-        $result = $this->blockchain->addBlock(123, '12ab');
+        $currentTransactions = [Stub::make(Transaction::class)];
+        $result = $this->blockchain->addBlock($currentTransactions, 123, '12ab');
         $this->assertSame(1, $result->getIndex());
         $this->assertSame('12ab', $result->getPreviousHash());
         $this->assertSame(123, $result->getProofOfWork());
@@ -95,8 +83,8 @@ class BlockchainTest extends Unit
      */
     public function itShouldBeValid(): void
     {
-        $this->markTestIncomplete('Mock timestamp of last block');
-        $this->blockchain->addBlock(123, '1');
+        $currentTransactions = [Stub::make(Transaction::class)];
+        $this->blockchain->addBlock($currentTransactions, 123, '1');
         $this->assertTrue($this->blockchain->isValid());
     }
 
@@ -107,8 +95,10 @@ class BlockchainTest extends Unit
      */
     public function itShouldBeInvalid(): void
     {
-        $this->markTestIncomplete('todo fix');
-        $this->blockchain->addBlock(123, '1');
+        $currentTransactions = [Stub::make(Transaction::class)];
+        $this->blockchain->addBlock($currentTransactions, 123, '1');
+        $currentTransactions = [Stub::make(Transaction::class)];
+        $this->blockchain->addBlock($currentTransactions, 123, '1');
         $this->assertFalse($this->blockchain->isValid());
     }
 
@@ -125,7 +115,8 @@ class BlockchainTest extends Unit
      */
     public function itShouldGetBlocks(): void
     {
-        $this->blockchain->addBlock(123, '1');
+        $currentTransactions = [Stub::make(Transaction::class)];
+        $this->blockchain->addBlock($currentTransactions, 123, '1');
         $result = $this->blockchain->getBlocks();
         $this->assertCount(1, $result);
     }

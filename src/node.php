@@ -33,7 +33,7 @@ $loop = React\EventLoop\Factory::create();
 
 try {
     $client = $isMaster ? new InitialClient(Util::createSignatureKeypair(), $difficulty) : new Client(
-        Util::createSignatureKeypair()
+        Util::createSignatureKeypair(), $blockChain
     );
     // todo: if not master, download blockchain:
 //    if (!$isMaster) {
@@ -47,7 +47,8 @@ try {
 
 $bench = new Ubench;
 
-$server = new Server([
+$server = new Server(
+    [
         new CorsMiddleware(['allow_origin' => ['*']]),
         function (ServerRequestInterface $request) use ($client, $bench) {
             $response = [];
@@ -57,27 +58,7 @@ $server = new Server([
                     echo 'GET /mine'.PHP_EOL;
                     try {
                         $bench->start();
-                        // Actually, it's the current latest block of the chain, and will be the previous block after the new block has been mined
-                        $latestBlock = $blockChain->getLatestBlock();
-                        $previousHash = $latestBlock->calculateHash();
-                        $proof = $blockChain->getProofOfWork($latestBlock->getProofOfWork(), $previousHash);
-                        //TODO miner reward (coinbase), make this more obvious:
-                        $clientPublicKey = $client->getKeyPair()->getPublicKey();
-                        $amount = 12;
-                        $signature = Util::signTransaction(
-                            Util::getKeyAsString($clientPublicKey).Util::getKeyAsString($clientPublicKey).$amount,
-                            Util::getKeyAsString($client->getKeyPair()->getSecretKey()),
-                            Util::getKeyAsString($clientPublicKey)
-                        );
-                        $blockChain->addTransaction(
-                            new Transaction(
-                                $clientPublicKey,
-                                $clientPublicKey,
-                                $amount,
-                                $signature
-                            )
-                        );
-                        $block = $blockChain->addBlock($proof, $previousHash);
+                        $block = $client->mine();
                         //TODO broadcast block to other nodes and negotiate consensus
                         $bench->end();
                         echo 'Mined new block in '.$bench->getTime().PHP_EOL;
@@ -108,7 +89,7 @@ $server = new Server([
                             $in['privkey'],
                             $in['recipient']
                         ); // todo
-                        $index = $blockChain->addTransaction(
+                        $index = $client->addTransaction(
                             new Transaction(
                                 Util::getPublicKeyAsObject($in['sender']),
                                 Util::getPublicKeyAsObject($in['recipient']),
@@ -157,7 +138,7 @@ $server = new Server([
                 case '/nodes/resolve':
                     echo 'GET /nodes/resolve'.PHP_EOL;
                     $response = [
-                        'message' => 'Not implemented yet.'
+                        'message' => 'Not implemented yet.',
                     ];
 //                    $replaced = $blockChain->resolveConflicts();
 //                    if ($replaced) {
@@ -202,6 +183,7 @@ $server = new Server([
                     } catch (\Exception $e) {
                         var_dump($e->getMessage());
                     }
+
                     return new Response(200, [], $serialized);
                     break;
                 case '/keys':
@@ -223,7 +205,7 @@ $server = new Server([
                 ['Content-Type' => 'application/json'],
                 json_encode($response, JSON_PRETTY_PRINT, 1000)
             );
-        }
+        },
     ]
 );
 
