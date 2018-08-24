@@ -145,6 +145,7 @@ $server = new Server(
 
                     break;
                 case '/keys':
+                    echo 'GET /keys'.PHP_EOL;
                     $response = [
                         'pubkey' => Util::getKeyAsString($client->getKeyPair()->getPublicKey()),
                         'privkey' => Util::getKeyAsString($client->getKeyPair()->getSecretKey()),
