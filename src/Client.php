@@ -2,7 +2,9 @@
 
 namespace Mattsches;
 
+use GuzzleHttp\Client as HttpClient;
 use ParagonIE\Halite\SignatureKeyPair;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Class Client
@@ -26,20 +28,60 @@ class Client
     protected $keyPair;
 
     /**
+     * @var HttpClient
+     */
+    protected $httpClient;
+
+    /**
      * Client constructor.
      * @param SignatureKeyPair $keyPair
-     * @param Blockchain $blockChain
+     * @param HttpClient $httpClient
      */
-    public function __construct(SignatureKeyPair $keyPair, Blockchain $blockChain = null)
+    public function __construct(SignatureKeyPair $keyPair, HttpClient $httpClient)
     {
         $this->keyPair = $keyPair;
-        $this->blockChain = $blockChain;
+        $this->httpClient = $httpClient;
+        if (!$this->isMaster()) {
+            try {
+                $this->blockChain = $this->downloadBlockChain();
+            } catch (\Exception $exception) {
+                die('Could not download blockchain from master. Client setup failed.');
+            }
+        }
     }
 
     /**
-     * @return BlockChain|null
+     * @return bool
      */
-    public function getBlockChain(): ?BlockChain
+    public function isMaster(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return BlockChain
+     * @throws \Ramsey\Uuid\Exception\InvalidUuidStringException
+     * @throws \ParagonIE\Halite\Alerts\InvalidKey
+     * @throws \SodiumException
+     */
+    private function downloadBlockChain(): BlockChain
+    {
+        $blockChainInfo = json_decode($this->httpClient->get('http://127.0.0.1:5001/getblockchaininfo')->getBody()->getContents());
+        $blockChain = new BlockChain($blockChainInfo->difficulty);
+        for ($i = 0; $i < $blockChainInfo->blocks; $i++) {
+            $block = json_decode($this->httpClient->post('http://127.0.0.1:5001/getblock', ['json' => ['index' => $i]])->getBody()->getContents());
+            foreach ($block->transactions as &$t) {
+                $t = new Transaction(Uuid::fromString($t->txid), Util::getPublicKeyAsObject($t->sender), Util::getPublicKeyAsObject($t->recipient), $t->amount, $t->signature);
+            }
+            $blockChain->addBlock($block->transactions, $block->proof, $block->previous_hash, $block->timestamp);
+        }
+        return $blockChain;
+    }
+
+    /**
+     * @return BlockChain
+     */
+    public function getBlockChain(): BlockChain
     {
         return $this->blockChain;
     }
@@ -92,8 +134,10 @@ class Client
 
     /**
      * @return Block
-     * @throws \ParagonIE\Halite\Alerts\CannotPerformOperation
+     * @throws \Ramsey\Uuid\Exception\UnsatisfiedDependencyException
+     * @throws \InvalidArgumentException
      * @throws \SodiumException
+     * @throws \Exception
      */
     public function mine(): Block
     {
@@ -110,6 +154,7 @@ class Client
         );
         $this->addTransaction(
             new Transaction(
+                Uuid::uuid4(),
                 $clientPublicKey,
                 $clientPublicKey,
                 $amount,
@@ -117,6 +162,6 @@ class Client
             )
         );
 
-        return $this->getBlockChain()->addBlock($this->getCurrentTransactions(), $proof, $previousHash);
+        return $this->getBlockChain()->addBlock($this->getCurrentTransactions(), $proof, $previousHash, time());
     }
 }

@@ -31,11 +31,12 @@ class BlockChain implements \JsonSerializable
      * @param array $transactions
      * @param int $proof
      * @param string $previousHash
+     * @param int $timestamp
      * @return Block
      */
-    public function addBlock(array $transactions, int $proof, string $previousHash): Block
+    public function addBlock(array $transactions, int $proof, string $previousHash, int $timestamp): Block
     {
-        $block = new Block(\count($this->blocks) + 1, $transactions, $proof, $previousHash);
+        $block = new Block(\count($this->blocks) + 1, $transactions, $proof, $previousHash, $timestamp);
         $this->blocks[] = $block;
 
         return $block;
@@ -141,7 +142,6 @@ class BlockChain implements \JsonSerializable
 
     /**
      * @return bool
-     * @throws \ParagonIE\Halite\Alerts\CannotPerformOperation
      */
     public function isValid(): bool
     {
@@ -150,7 +150,6 @@ class BlockChain implements \JsonSerializable
         while ($currentIndex < \count($this->blocks)) {
             $block = $this->blocks[$currentIndex];
             if ($block->getPreviousHash() !== $lastBlock->calculateHash()) {
-//                $foo = $lastBlock->calculateHash(); //TODO
                 echo 'INVALID'.PHP_EOL;
 
                 return false;
@@ -190,5 +189,14 @@ class BlockChain implements \JsonSerializable
             }
         }
         return null;
+    }
+
+    /**
+     * @param int $index
+     * @return Block
+     */
+    public function getBlock(int $index): Block
+    {
+        return $this->blocks[$index];
     }
 }

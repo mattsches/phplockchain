@@ -24,7 +24,7 @@ class BlockTest extends Unit
         $transactions = [
             Stub::make(Transaction::class),
         ];
-        $this->block = new Block(1, $transactions, 123, '12ab');
+        $this->block = new Block(1, $transactions, 123, '12ab', time());
     }
 
     /**

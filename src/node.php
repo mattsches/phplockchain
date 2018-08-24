@@ -8,14 +8,11 @@ use Mattsches\InitialClient;
 use Mattsches\Transaction;
 use Mattsches\Util;
 use Psr\Http\Message\ServerRequestInterface;
+use Ramsey\Uuid\Uuid;
 use React\Http\Response;
 use React\Http\Server;
 use React\Socket\Server as SocketServer;
 use Sikei\React\Http\Middleware\CorsMiddleware;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Encoder\XmlEncoder;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
 
 require __DIR__.'/../vendor/autoload.php';
 
@@ -32,15 +29,12 @@ if (!$port) {
 $loop = React\EventLoop\Factory::create();
 
 try {
-    $client = $isMaster ? new InitialClient(Util::createSignatureKeypair(), $difficulty) : new Client(
-        Util::createSignatureKeypair(), $blockChain
-    );
-    // todo: if not master, download blockchain:
-//    if (!$isMaster) {
-//        $nodeClient = new GuzzleHttp\Client();
-//        $blockChain = $nodeClient->get('http://127.0.0.1:5001/connect')->getBody()->getContents();
-//        $client->importBlockChain($blockChain);
-//    }
+    $httpClient = new GuzzleHttp\Client();
+    if ($isMaster) {
+        $client = new InitialClient(Util::createSignatureKeypair(), $httpClient, $difficulty);
+    } else {
+        $client = new Client(Util::createSignatureKeypair(), $httpClient);
+    }
 } catch (Exception $e) {
     die($exception->getMessage());
 }
@@ -73,7 +67,7 @@ $server = new Server(
                         echo $e->getMessage().PHP_EOL;
                     }
                     break;
-                case '/transaction':
+                case '/transaction': // create a new  transaction
                     if ($request->getMethod() !== 'POST') {
                         return new Response(400, ['Content-Type' => 'text/plain'], 'no');
                     }
@@ -88,9 +82,10 @@ $server = new Server(
                             $in['sender'].$in['recipient'].$in['amount'],
                             $in['privkey'],
                             $in['recipient']
-                        ); // todo
+                        );
                         $index = $client->addTransaction(
                             new Transaction(
+                                Uuid::uuid4(),
                                 Util::getPublicKeyAsObject($in['sender']),
                                 Util::getPublicKeyAsObject($in['recipient']),
                                 (int)$in['amount'],
@@ -100,7 +95,7 @@ $server = new Server(
                         $response = [
                             'message' => sprintf('Transaction will be added to Block %d', $index),
                         ];
-                        //TODO broadcast transaction
+                        //TODO broadcast transaction to other nodes
                     } catch (\Exception $e) {
                         $response = [
                             'message' => $e->getMessage(),
@@ -118,48 +113,13 @@ $server = new Server(
                         'ours' => $client->verifyAndDecryptTransaction($in['txid']),
                     ];
                     break;
-                case '/nodes/register':
-                    if ($request->getMethod() !== 'POST') {
-                        return new Response(400, ['Content-Type' => 'text/plain'], 'no');
-                    }
-                    echo 'POST /nodes/register'.PHP_EOL;
-                    $in = json_decode($request->getBody()->getContents(), true);
-                    $nodes = $in['nodes'];
-                    assert(array_key_exists('nodes', $in));
-                    assert(is_array($in['nodes']));
-//                    foreach ($nodes as $node) {
-//                        $blockChain->registerNode($node);
-//                    }
-//                    $response = [
-//                        'message' => 'New nodes have been added',
-//                        'total_nodes' => count($blockChain->getNodes()),
-//                    ];
-                    break;
-                case '/nodes/resolve':
-                    echo 'GET /nodes/resolve'.PHP_EOL;
-                    $response = [
-                        'message' => 'Not implemented yet.',
-                    ];
-//                    $replaced = $blockChain->resolveConflicts();
-//                    if ($replaced) {
-//                        $response = [
-//                            'message' => 'Our chain was replaced',
-//                            'new_chain' => $blockChain->getBlocks(),
-//                        ];
-//                    } else {
-//                        $response = [
-//                            'message' => 'Our chain is authoritative',
-//                            'chain' => $blockChain->getBlocks(),
-//                        ];
-//                    }
-                    break;
                 case '/chain/valid':
                     echo 'GET /chain/valid'.PHP_EOL;
                     $response = [
                         'message' => $blockChain->isValid() ? 'valid' : 'invalid',
                     ];
                     break;
-                case '/chain': // TODO @deprecated ?
+                case '/chain':
                     echo 'GET /chain'.PHP_EOL;
                     $response = [
                         'chain' => $blockChain,
@@ -173,27 +133,22 @@ $server = new Server(
                         'difficulty' => $blockChain->getDifficulty(),
                     ];
                     break;
-                case '/connect':
-                    try {
-                        $encoders = [new XmlEncoder(), new JsonEncoder()];
-                        $normalizers = [new ObjectNormalizer()];
-                        $serializer = new Serializer($normalizers, $encoders);
-                        $serialized = $serializer->serialize($blockChain, 'xml');
-//                        var_dump($serialized);
-                    } catch (\Exception $e) {
-                        var_dump($e->getMessage());
+                case '/getblock':
+                    if ($request->getMethod() !== 'POST') {
+                        return new Response(400, ['Content-Type' => 'text/plain'], 'no');
                     }
+                    echo 'POST /getblock'.PHP_EOL;
+                    $in = json_decode($request->getBody()->getContents(), true);
+                    assert(array_key_exists('index', $in));
+                    $block = $blockChain->getBlock($in['index']);
+                    $response = $block->jsonSerialize();
 
-                    return new Response(200, [], $serialized);
                     break;
                 case '/keys':
                     $response = [
                         'pubkey' => Util::getKeyAsString($client->getKeyPair()->getPublicKey()),
                         'privkey' => Util::getKeyAsString($client->getKeyPair()->getSecretKey()),
                     ];
-                    break;
-                case '/dashboard':
-                    return new Response(200, [], file_get_contents(__DIR__.'/static/dashboard.html'));
                     break;
                 default:
                     echo 'GET /'.PHP_EOL;

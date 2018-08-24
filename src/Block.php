@@ -43,19 +43,19 @@ class Block implements \JsonSerializable
      * @param array $transactions
      * @param int $proofOfWork
      * @param string $previousHash
+     * @param int $timestamp
      */
-    public function __construct(int $index, array $transactions, int $proofOfWork, string $previousHash)
+    public function __construct(int $index, array $transactions, int $proofOfWork, string $previousHash, int $timestamp)
     {
         $this->index = $index;
         $this->transactions = $transactions;
         $this->proofOfWork = $proofOfWork;
         $this->previousHash = $previousHash;
-        $this->timestamp = time();
+        $this->timestamp = $timestamp;
     }
 
     /**
      * @return string
-     * @throws CannotPerformOperation
      */
     public function calculateHash(): string
     {
@@ -66,7 +66,11 @@ class Block implements \JsonSerializable
             $this->transactions
         );
         $merkleTree = new MerkleTree(...$treeNodes);
-        $rootHash = $merkleTree->getRoot();
+        try {
+            $rootHash = $merkleTree->getRoot();
+        } catch (CannotPerformOperation|\TypeError $e) {
+            die($e->getMessage());
+        }
 
         return hash('sha256', $this->index.$rootHash.$this->proofOfWork.$this->previousHash.$this->timestamp);
     }
@@ -74,7 +78,6 @@ class Block implements \JsonSerializable
     /**
      * Specify data which should be serialized to JSON
      * @return mixed data which can be serialized by <b>json_encode</b>,
-     * @throws CannotPerformOperation
      */
     public function jsonSerialize(): array
     {
@@ -84,6 +87,7 @@ class Block implements \JsonSerializable
             'previous_hash' => $this->getPreviousHash(),
             'transactions' => $this->getTransactions(),
             'hash' => $this->calculateHash(),
+            'timestamp' => $this->getTimestamp(),
         ];
     }
 
@@ -117,5 +121,13 @@ class Block implements \JsonSerializable
     public function getTransactions(): array
     {
         return $this->transactions;
+    }
+
+    /**
+     * @return int
+     */
+    public function getTimestamp(): int
+    {
+        return $this->timestamp;
     }
 }

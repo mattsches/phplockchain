@@ -1,7 +1,7 @@
 <?php
 
+use GuzzleHttp\Client;
 use Mattsches\BlockChain;
-use Mattsches\Client;
 use Mattsches\InitialClient;
 use Mattsches\Util;
 use ParagonIE\Halite\SignatureKeyPair;
@@ -22,7 +22,8 @@ class InitialClientTest extends \Codeception\Test\Unit
     protected function _before()
     {
         $keyPair = Util::createSignatureKeypair();
-        $this->client = new InitialClient($keyPair, 4);
+        $httpClient = new Client();
+        $this->client = new InitialClient($keyPair, $httpClient, 4);
     }
 
     /**

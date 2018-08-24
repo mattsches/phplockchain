@@ -5,6 +5,7 @@ namespace Mattsches;
 use ParagonIE\Halite\Asymmetric\SignaturePublicKey;
 use ParagonIE\Halite\Asymmetric\SignatureSecretKey;
 use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
 
 /**
  * Class Transaction
@@ -43,19 +44,20 @@ class Transaction implements \JsonSerializable
     /**
      * Transaction constructor.
      *
+     * @param UuidInterface $txid
      * @param SignaturePublicKey $sender
      * @param SignaturePublicKey $recipient
      * @param int $amount
      * @param string $signature
-     * @throws \Exception
      */
     public function __construct(
+        UuidInterface $txid,
         SignaturePublicKey $sender,
         SignaturePublicKey $recipient,
         int $amount,
         string $signature
     ) {
-        $this->txid = Uuid::uuid4();
+        $this->txid = $txid;
         $this->sender = $sender;
         $this->recipient = $recipient;
         $this->amount = $amount;

@@ -39,7 +39,7 @@ class BlockchainTest extends Unit
     {
         $currentTransactions = [Stub::make(Transaction::class)];
         $this->assertNull($this->blockchain->getLatestBlock());
-        $this->blockchain->addBlock($currentTransactions, 100, '');
+        $this->blockchain->addBlock($currentTransactions, 100, '', time());
         $result = $this->blockchain->getLatestBlock();
         $this->assertInstanceOf(Block::class, $result);
         $this->assertSame(1, $result->getIndex());
@@ -70,7 +70,7 @@ class BlockchainTest extends Unit
     public function itShouldAddABlock(): void
     {
         $currentTransactions = [Stub::make(Transaction::class)];
-        $result = $this->blockchain->addBlock($currentTransactions, 123, '12ab');
+        $result = $this->blockchain->addBlock($currentTransactions, 123, '12ab', time());
         $this->assertSame(1, $result->getIndex());
         $this->assertSame('12ab', $result->getPreviousHash());
         $this->assertSame(123, $result->getProofOfWork());
@@ -84,7 +84,7 @@ class BlockchainTest extends Unit
     public function itShouldBeValid(): void
     {
         $currentTransactions = [Stub::make(Transaction::class)];
-        $this->blockchain->addBlock($currentTransactions, 123, '1');
+        $this->blockchain->addBlock($currentTransactions, 123, '1', time());
         $this->assertTrue($this->blockchain->isValid());
     }
 
@@ -96,9 +96,9 @@ class BlockchainTest extends Unit
     public function itShouldBeInvalid(): void
     {
         $currentTransactions = [Stub::make(Transaction::class)];
-        $this->blockchain->addBlock($currentTransactions, 123, '1');
+        $this->blockchain->addBlock($currentTransactions, 123, '1', time());
         $currentTransactions = [Stub::make(Transaction::class)];
-        $this->blockchain->addBlock($currentTransactions, 123, '1');
+        $this->blockchain->addBlock($currentTransactions, 123, '1', time());
         $this->assertFalse($this->blockchain->isValid());
     }
 
@@ -116,7 +116,7 @@ class BlockchainTest extends Unit
     public function itShouldGetBlocks(): void
     {
         $currentTransactions = [Stub::make(Transaction::class)];
-        $this->blockchain->addBlock($currentTransactions, 123, '1');
+        $this->blockchain->addBlock($currentTransactions, 123, '1', time());
         $result = $this->blockchain->getBlocks();
         $this->assertCount(1, $result);
     }

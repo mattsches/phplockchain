@@ -2,7 +2,9 @@
 
 namespace Mattsches;
 
+use GuzzleHttp\Client as HttpClient;
 use ParagonIE\Halite\SignatureKeyPair;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Class InitialClient
@@ -13,11 +15,13 @@ class InitialClient extends Client
     /**
      * InitialClient constructor.
      * @param SignatureKeyPair $keyPair
+     * @param HttpClient $httpClient
      * @param int $difficulty
      */
-    public function __construct(SignatureKeyPair $keyPair, int $difficulty)
+    public function __construct(SignatureKeyPair $keyPair, HttpClient $httpClient, int $difficulty)
     {
-        parent::__construct($keyPair, $this->initBlockChain($difficulty));
+        parent::__construct($keyPair, $httpClient);
+        $this->blockChain = $this->initBlockChain($difficulty);
         try {
             $this->addGenesisBlock();
         } catch (\Exception $exception) {
@@ -27,8 +31,16 @@ class InitialClient extends Client
     }
 
     /**
+     * @return bool
+     */
+    public function isMaster(): bool
+    {
+        return true;
+    }
+
+    /**
      * @param int $difficulty
-     * @return $this
+     * @return BlockChain
      */
     private function initBlockChain(int $difficulty): BlockChain
     {
@@ -50,9 +62,9 @@ class InitialClient extends Client
             $publicKeyAsString
         );
         $this->addTransaction(
-            new Transaction($this->keyPair->getPublicKey(), $this->keyPair->getPublicKey(), $amount, $signature)
+            new Transaction(Uuid::uuid4(), $this->keyPair->getPublicKey(), $this->keyPair->getPublicKey(), $amount, $signature)
         );
-        $this->blockChain->addBlock($this->currentTransactions, 100, '1');
+        $this->blockChain->addBlock($this->currentTransactions, 100, '1', time());
         $this->currentTransactions = [];
     }
 }
